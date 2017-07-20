@@ -5,7 +5,7 @@
     <application>
         <uses-library android:name="com.google.android.things" />
 
-        <activity android:name=".AndroidThingsActivity">
+        <activity android:name="thilanka.org.org.thilanka.companion.AndroidThingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
