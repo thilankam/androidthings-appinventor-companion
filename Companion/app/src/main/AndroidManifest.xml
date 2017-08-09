@@ -2,10 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="thilanka.org.companion">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application>
         <uses-library android:name="com.google.android.things" />
 
-        <activity android:name="thilanka.org.org.thilanka.companion.AndroidThingsActivity">
+        <activity android:name="thilanka.org.companion.AndroidThingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

@@ -16,11 +16,13 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.MqttTopic;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.UUID;
 
 /**
  * Entry Point for the MIT App Inventor clients connecting to the Android Things Hardware Devices.
@@ -30,13 +32,11 @@ import java.util.StringTokenizer;
 public class AndroidThingsActivity extends Activity implements MqttCallback {
 
     private static final String TAG = "AndroidThingsActivity";
-    /*
-    TODO: this topic has to be unique to App Inventor and also for the specific board the companion is installed and is being used
-    */
-    private static final String TOPIC = "AppInventor";
     private static final String SERVERURI = "tcp://iot.eclipse.org:1883";
     private static final java.lang.String CLIENT_ID = "AndroidThingSubscribingClient";
     private static final String PROPERTIES_FILE_NAME = "board.properties";
+
+    private String mBoardIdentifier;
 
     private PeripheralManagerService service;
 
@@ -65,11 +65,11 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                 message.setRetained(false);
 
                 // Publish the message
-                System.out.println("Publishing to topic \"" + TOPIC + "\" qos " + pubQoS);
+                System.out.println("Publishing to topic \"" + getInternalTopic() + "\" qos " + pubQoS);
                 MqttDeliveryToken token = null;
                 try {
                     // publish message to broker
-                    MqttTopic topic = client.getTopic(TOPIC);
+                    MqttTopic topic = client.getTopic(getInternalTopic());
                     token = topic.publish(message);
                     // Wait until the message has been delivered to the broker
                     token.waitForCompletion();
@@ -98,6 +98,10 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        mBoardIdentifier = UUID.randomUUID().toString();
+
+        Log.i(TAG, "The Board Identifier is "+ mBoardIdentifier + ". Please use this same identifier on App Inventor.");
+
         inputPinsMap = new HashMap<>();
 
         service = new PeripheralManagerService();
@@ -109,8 +113,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
             client.setCallback(this);
             client.connect();
 
-            client.subscribe(TOPIC);
-            Log.d(TAG, "Subscribed to " + TOPIC);
+            Log.d(TAG, "Subscribing to " + getInternalTopic());
+            client.subscribe(getInternalTopic());
+            Log.d(TAG, "Subscribed to " + getInternalTopic());
 
         } catch (MqttException e) {
             e.printStackTrace();
@@ -127,7 +132,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     public void messageArrived(String topic, MqttMessage message) throws Exception {
         Log.d(TAG, "The following message " + message + " on topic " + topic + " arrived.");
 
-        if (!topic.equals(TOPIC)) {
+        if (!topic.equals(getInternalTopic())) {
             /**
              * No need to take any action if this is not the topic we want.
              */
@@ -204,5 +209,12 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
         Log.d(TAG, "Delivery of the message has completed. Received token " + token);
+    }
+
+    private String getInternalTopic() {
+        StringBuilder topicBuilder = new StringBuilder();
+        topicBuilder.append(Topic.INTERNAL.toString());
+        topicBuilder.append(mBoardIdentifier);
+        return topicBuilder.toString();
     }
 }
