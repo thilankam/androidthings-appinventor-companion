@@ -19,6 +19,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.thilanka.messaging.domain.Action;
 import org.thilanka.messaging.domain.Message;
 import org.thilanka.messaging.domain.Payload;
+import org.thilanka.messaging.domain.PeripheralIO;
 import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
@@ -45,7 +46,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     /**
      * Log Tag for this class.
      */
-    private static final String TAG = "AndroidThingsActivity";
+    private static final String TAG = AndroidThingsActivity.class.getSimpleName();
 
     /**
      * Messaging Host used for sending the MQTT messages back and forth.
@@ -99,6 +100,11 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     private GpioHandler mGpioHandler;
 
     /**
+     * The PWM Handler.
+     */
+    private PwmHandler mPwmHandler;
+
+    /**
      * The Constructor.
      * @throws MqttException
      */
@@ -108,6 +114,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         String serverUrl = "tcp://" + SERVER + ":" + "1883";
         mMqttClient = new MqttClient(serverUrl, CLIENT_ID, new MemoryPersistence());
         mGpioHandler = new GpioHandler(mMqttClient, mPeripheralManagerService);
+        mPwmHandler = new PwmHandler(mMqttClient, mPeripheralManagerService);
     }
 
     /**
@@ -218,17 +225,17 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
             return;
         }
 
-        String payload = new String(pMessage.getPayload());
+        String payloadStr = new String(pMessage.getPayload());
 
-        Payload pin = Message.deconstrctMessage(payload);
-        Action messageType = pin.getAction();
+        Payload payload = Message.deconstrctMessage(payloadStr);
+        PeripheralIO peripheralIOType = payload.getPeripheralIO();
 
-        switch (messageType) {
-            case REGISTER:
-                mGpioHandler.handleRegisterPin(pin);
+        switch(peripheralIOType){
+            case GPIO:
+                mGpioHandler.handleMessage(payload);
                 break;
-            case EVENT:
-                mGpioHandler.handlePinEvent(pin);
+            case PWM:
+                mPwmHandler.handleMessage(payload);
                 break;
             default:
                 Log.d(TAG, "Message not supported!");

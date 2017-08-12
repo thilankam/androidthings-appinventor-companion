@@ -12,14 +12,14 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.thilanka.device.pin.PinDirection;
 import org.thilanka.device.pin.PinValue;
+import org.thilanka.messaging.domain.Action;
 import org.thilanka.messaging.domain.Payload;
-import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
 import java.util.Set;
 
 /**
- * The logic that handles any GPIO related activities.
+ * The logic that handles GPIO related activities.
  *
  * @author Thilanka Munasinghe (thilankawillbe@gmail.com)
  */
@@ -27,7 +27,7 @@ import java.util.Set;
 public class GpioHandler {
 
     /* The Log Tag*/
-    private static final String TAG = "GpioHandler";
+    private static final String TAG = GpioHandler.class.getSimpleName();
 
     /* The MQTT Client*/
     private final MqttClient mMqttClient;
@@ -107,7 +107,7 @@ public class GpioHandler {
      * @param pPayload
      * @throws IOException
      */
-    public void handleRegisterPin(Payload pPayload) throws IOException {
+    private void handleRegisterPin(Payload pPayload) throws IOException {
         String pinName = pPayload.getName();
         PinDirection pinDirection = pPayload.getDirection();
         PinValue pinValue = pPayload.getValue();
@@ -137,7 +137,7 @@ public class GpioHandler {
      * @param pPayload
      * @throws IOException
      */
-    public void handlePinEvent(Payload pPayload) throws IOException {
+    private void handlePinEvent(Payload pPayload) throws IOException {
         Log.d(TAG, "Received a Pin Event triggered from App Inventor.");
         String pinName = pPayload.getName();
         PinDirection pinDirection = pPayload.getDirection();
@@ -179,6 +179,27 @@ public class GpioHandler {
                     Log.w(TAG, "Unable to close GPIO " + pin.toString(), e);
                 }
             }
+        }
+    }
+
+    /**
+     * Handle the messages intended for GPIO.
+     * @param pPayload
+     * @throws IOException
+     */
+    public void handleMessage(Payload pPayload) throws IOException {
+        Action messageType = pPayload.getAction();
+
+        switch (messageType) {
+            case REGISTER:
+                handleRegisterPin(pPayload);
+                break;
+            case EVENT:
+                handlePinEvent(pPayload);
+                break;
+            default:
+                Log.d(TAG, "Message not supported!");
+                break;
         }
     }
 
