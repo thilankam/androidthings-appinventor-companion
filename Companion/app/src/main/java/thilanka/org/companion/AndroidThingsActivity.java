@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 
 import com.google.android.things.pio.Gpio;
@@ -25,12 +24,8 @@ import org.thilanka.device.pin.PinValue;
 import org.thilanka.messaging.domain.Action;
 import org.thilanka.messaging.domain.HeaderPin;
 import org.thilanka.messaging.domain.Message;
-import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -44,29 +39,25 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     private static final String TAG = "AndroidThingsActivity";
     private static final String SERVERURI = "tcp://iot.eclipse.org:1883";
     private static final java.lang.String CLIENT_ID = "AndroidThingSubscribingClient";
-    private static final String PROPERTIES_FILE_NAME = "board.properties";
-    private static final int QOS = 2;
-    private static final long SLEEP_TIME = 500;
+    private static final String PROPERTIES_FILE_NAME = "board.properties"; // companion board.
+    private static final int QOS = 2; // QoS value set to 2. (QoS property of MQTT).
+    private static final long SLEEP_TIME = 500; // Thread sleep time set to 500 miliseconds.
     private static final String BOARD_IDENTFIER = "BOARD_IDENTFIER";
 
-    private String mBoardIdentifier;
-
-    private PeripheralManagerService mPeripheralManagerService = new PeripheralManagerService();
+    private static String sBoardIdentifier;
 
     private MqttClient mMqttClient;
-
-    private Map<Gpio, String> mInputPinsMap;
-
     private MqttConnectOptions mMQTTConnectOptions;
-
-    private BiMap<String, Gpio> mOpenPinMap = HashBiMap.create();
+    private BiMap<String, Gpio> mInputPinsMap;
+    private BiMap<String, Gpio> mOutputPinsMap;
+    private PeripheralManagerService mPeripheralManagerService;
 
     private GpioCallback mGpioCallback = new GpioCallback() {
         @Override
         public boolean onGpioEdge(Gpio gpio) {
             // Read the active low pin state
             try {
-                String pinName = mInputPinsMap.get(gpio);
+                String pinName = mInputPinsMap.inverse().get(gpio);
                 if (gpio.getValue()) {
                     // Pin is LOW
                     Log.d(TAG, "Pin "+pinName+" is Low/OFF.");
@@ -81,15 +72,14 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                 message.setRetained(false);
 
                 // Publish the message
-                System.out.println("Publishing to topic \"" + getInternalTopic() + "\" qos " + QOS);
+                System.out.println("Publishing to topic \"" + sBoardIdentifier + "\" qos " + QOS);
                 try {
                     // publish message to broker
-                    mMqttClient.publish(getInternalTopic(), message);
+                    mMqttClient.publish(sBoardIdentifier, message);
                     Thread.sleep(SLEEP_TIME);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -105,40 +95,43 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         }
     };
 
-    private void setup(){
+    public AndroidThingsActivity() {
         mMQTTConnectOptions = new MqttConnectOptions();
+        mInputPinsMap = HashBiMap.create();
+        mOutputPinsMap = HashBiMap.create();
+        mPeripheralManagerService = new PeripheralManagerService();
+    }
+
+    private void setup(){
         mMQTTConnectOptions.setCleanSession(true);
         mMQTTConnectOptions.setAutomaticReconnect(true);
 
-        // INSTANTIATE THE SHAREDPREFERENCE INSTANCE
+        /* Instantiate the Sharedpreference instance. */
         SharedPreferences sharedPrefs = getApplicationContext().getSharedPreferences(PROPERTIES_FILE_NAME, Context.MODE_PRIVATE);
 
         String existingBoardIdentifier = sharedPrefs.getString(BOARD_IDENTFIER, null);
 
         if (existingBoardIdentifier == null){
-            // INSTANTIATE THE EDITOR INSTANCE
+            // Instantiate the editor instance.
             SharedPreferences.Editor editor = sharedPrefs.edit();
 
-            mBoardIdentifier = UUID.randomUUID().toString();
+            sBoardIdentifier = UUID.randomUUID().toString();
 
-            // ADD VALUES TO THE PREFERENCES FILE
-            editor.putString(BOARD_IDENTFIER, mBoardIdentifier);
+            // Add values to the preferences file.
+            editor.putString(BOARD_IDENTFIER, sBoardIdentifier);
 
-            // THIS STEP IS VERY IMPORTANT. THIS ENSURES THAT THE VALUES ADDED TO THE FILE WILL ACTUALLY PERSIST
-            // COMMIT THE ABOVE DATA TO THE PREFERENCE FILE
-            editor.commit();
+            // This step is very important and it ensures that the values added to the file will actually persist.
+            // commit the above data into the preference file.
+            editor.apply();
 
-            Log.d(TAG, "Generated a new Board Identifier and upated the shared preferences : " + mBoardIdentifier);
+            Log.d(TAG, "Generated a new Board Identifier and upated the shared preferences. The board identifier : " + sBoardIdentifier);
 
         } else {
-            mBoardIdentifier = existingBoardIdentifier;
-            Log.d(TAG, "Retrieved the Board Identifier from shared preferences : " + mBoardIdentifier);
+            sBoardIdentifier = existingBoardIdentifier;
+            Log.d(TAG, "Retrieved the Board Identifier from shared preferences : " + sBoardIdentifier);
         }
 
-        Log.i(TAG, "The Board Identifier is "+ mBoardIdentifier + ". Please use this same identifier on App Inventor.");
-
-        mInputPinsMap = new HashMap<>();
-
+        Log.i(TAG, "The Board Identifier is "+ sBoardIdentifier + ". Please use this same identifier on App Inventor.");
         Log.d(TAG, "Available GPIO: " + mPeripheralManagerService.getGpioList());
     }
 
@@ -154,7 +147,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         try {
             mMqttClient = new MqttClient(SERVERURI, CLIENT_ID, new MemoryPersistence());
 
-            mMqttClient.setCallback(new AndroidThingsActivity());
+            mMqttClient.setCallback(this);
 
             mMqttClient.connect(mMQTTConnectOptions);
 
@@ -164,9 +157,8 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                 Log.e(TAG, e.getLocalizedMessage());
             }
 
-            Log.d(TAG, "Subscribing to " + getInternalTopic());
-            mMqttClient.subscribe(getInternalTopic(),QOS);
-            Log.d(TAG, "Subscribed to " + getInternalTopic());
+            Log.d(TAG, "Listening to MIT App Inventor messages on " + sBoardIdentifier);
+            mMqttClient.subscribe(sBoardIdentifier, QOS);
 
         } catch (MqttException e) {
             e.printStackTrace();
@@ -178,29 +170,22 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         Log.e(TAG, "Connection with the MIT App Inventor Client Lost!");
         createMQTTClient();
         Log.d(TAG, "Successfully reconnected.");
-
     }
 
+    /**
+     * The payload is constructed from the android-things-messages library.
+     * It may look like this:
+     * {"mDirection":"OUT","mName":"GPIO_34","mProperty":"PIN_STATE","mValue":"LOW"}
+     */
     @Override
     public void messageArrived(String topic, MqttMessage message) throws Exception {
         Log.d(TAG, "The following message " + message + " on topic " + topic + " arrived.");
 
-        Log.d(TAG,"getInternalTopic()=" +getInternalTopic());
+        if (!topic.equals(sBoardIdentifier)) {
+            /* No need to take any action if this is not the topic we want. */
+            return;
+        }
 
-        //TODO: Remove the comment
-//        if (!topic.equals(getInternalTopic())) {
-//            /**
-//             * No need to take any action if this is not the topic we want.
-//             */
-//            Log.d(TAG, "BAD");
-//            return;
-//        }
-
-        /**
-         * The payload is constructed from the android-things-messages library.
-         * It may look like this:
-         * {"mDirection":"OUT","mName":"GPIO_34","mProperty":"PIN_STATE","mValue":"LOW"}
-         */
         String payload = new String(message.getPayload());
 
         HeaderPin pin = Message.deconstrctPinMessage(payload);
@@ -224,7 +209,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                     // Register for all state changes
                     inputPin.setEdgeTriggerType(Gpio.EDGE_BOTH);
                     inputPin.registerGpioCallback(mGpioCallback);
-                    mInputPinsMap.put(inputPin, pinName);
+                    mInputPinsMap.put(pinName, inputPin);
                 } else {
                     Log.d(TAG, "The pin " + pinName + " is an output pin. Nothing to do here.");
                 }
@@ -233,16 +218,15 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                 Log.d(TAG, "Received a Pin Event triggered from App Inventor.");
                 // Create GPIO connection for the pin.
                 if (pinDirection == PinDirection.OUT) {
-                    Log.d(TAG, "Inside PinDirection Conditional.");
                     Gpio gpioPin = openPin(pinName);
 
                     switch (pinValue) {
                         case HIGH:
-                            Log.d(TAG, "PIN ON");
+                            Log.d(TAG, "Turning " + pinName +" ON.");
                             gpioPin.setValue(true);
                             break;
                         case LOW:
-                            Log.d(TAG, "PIN OFF");
+                            Log.d(TAG, "Turning " + pinName +" OFF.");
                             gpioPin.setValue(false);
                             break;
                         default:
@@ -260,14 +244,13 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     }
 
     private Gpio openPin(String pinName) {
-        Gpio gpioPin = null;
-        if (mOpenPinMap.containsKey(pinName)){
-            gpioPin = mOpenPinMap.get(pinName);
+        Gpio gpioPin;
+        if (mOutputPinsMap.containsKey(pinName)){
+            gpioPin = mOutputPinsMap.get(pinName);
             try {
-                Log.d(TAG, "Closing existing pin " + pinName);
+                Log.d(TAG, "Closing existing pin " + pinName + ".");
                 gpioPin.close();
-                gpioPin = null;
-                mOpenPinMap.remove(pinName);
+                mOutputPinsMap.remove(pinName);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -282,7 +265,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
             gpioPin = mPeripheralManagerService.openGpio(pinName);
             //TODO: Revisit having initially low. We are certain about the direction being OUT here.
             gpioPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-            mOpenPinMap.put(pinName, gpioPin);
+            mOutputPinsMap.put(pinName, gpioPin);
         } catch (IOException e) {
             Log.e(TAG, e.getLocalizedMessage());
         }
@@ -295,25 +278,16 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         Log.d(TAG, "Delivery of the message has completed. Received token " + token);
     }
 
-    private String getInternalTopic() {
-        StringBuilder topicBuilder = new StringBuilder();
-        topicBuilder.append(Topic.INTERNAL.toString());
-        topicBuilder.append(mBoardIdentifier);
-        return topicBuilder.toString();
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        Set<Gpio> openGpioPins = mOpenPinMap.values();
-        Iterator<Gpio> iterator = openGpioPins.iterator();
-        while (iterator.hasNext()){
-            Gpio pin = iterator.next();
+        Set<Gpio> openGpioPins = mOutputPinsMap.values();
+        for (Gpio pin : openGpioPins) {
             if (pin != null) {
                 try {
                     pin.close();
-                    mOpenPinMap.remove(pin);
+                    mOutputPinsMap.inverse().remove(pin);
                     pin = null;
                 } catch (IOException e) {
                     Log.w(TAG, "Unable to close GPIO " + pin.toString(), e);
