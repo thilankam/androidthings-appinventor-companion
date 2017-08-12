@@ -12,7 +12,8 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.thilanka.device.pin.PinDirection;
 import org.thilanka.device.pin.PinValue;
-import org.thilanka.messaging.domain.HeaderPin;
+import org.thilanka.messaging.domain.Payload;
+import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
 import java.util.Set;
@@ -22,6 +23,7 @@ import java.util.Set;
  *
  * @author Thilanka Munasinghe (thilankawillbe@gmail.com)
  */
+@SuppressWarnings("ALL")
 public class GpioHandler {
 
     /* The Log Tag*/
@@ -65,7 +67,8 @@ public class GpioHandler {
                         .getBoardIdentfier() + "\" qos " + AndroidThingsActivity.QOS);
                 try {
                     // publish message to broker
-                    mMqttClient.publish(AndroidThingsActivity.getBoardIdentfier(), message);
+                    mMqttClient.publish(AndroidThingsActivity.getPublishTopic(),
+                            message);
                     Thread.sleep(AndroidThingsActivity.SLEEP_TIME);
                 } catch (Exception e) {
                     Log.e(TAG, e.getLocalizedMessage());
@@ -101,13 +104,13 @@ public class GpioHandler {
 
     /**
      * Handle a message that is requesting to register a pin as an input.
-     * @param pHeaderPin
+     * @param pPayload
      * @throws IOException
      */
-    public void handleRegisterPin(HeaderPin pHeaderPin) throws IOException {
-        String pinName = pHeaderPin.getName();
-        PinDirection pinDirection = pHeaderPin.getDirection();
-        PinValue pinValue = pHeaderPin.getValue();
+    public void handleRegisterPin(Payload pPayload) throws IOException {
+        String pinName = pPayload.getName();
+        PinDirection pinDirection = pPayload.getDirection();
+        PinValue pinValue = pPayload.getValue();
         Log.d(TAG, "Received a Pin Registration triggered from App Inventor.");
         if (pinDirection == PinDirection.IN) {
             Log.d(TAG, "Registering pin " + pinName + " as an input " + " with initial state " +
@@ -131,14 +134,14 @@ public class GpioHandler {
 
     /**
      * Handle a message that needs to trigger an event on the GPIO pin.
-     * @param pHeaderPin
+     * @param pPayload
      * @throws IOException
      */
-    public void handlePinEvent(HeaderPin pHeaderPin) throws IOException {
+    public void handlePinEvent(Payload pPayload) throws IOException {
         Log.d(TAG, "Received a Pin Event triggered from App Inventor.");
-        String pinName = pHeaderPin.getName();
-        PinDirection pinDirection = pHeaderPin.getDirection();
-        PinValue pinValue = pHeaderPin.getValue();
+        String pinName = pPayload.getName();
+        PinDirection pinDirection = pPayload.getDirection();
+        PinValue pinValue = pPayload.getValue();
         // Create GPIO connection for the pin.
         if (pinDirection == PinDirection.OUT) {
             Gpio gpioPin = openPin(pinName);
@@ -193,7 +196,7 @@ public class GpioHandler {
                 gpioPin.close();
                 mGpioOutputPinsMap.remove(pPinName);
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, e.getLocalizedMessage());
             }
         }
         gpioPin = createNewPin(pPinName);

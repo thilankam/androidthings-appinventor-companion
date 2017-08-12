@@ -17,8 +17,9 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.thilanka.messaging.domain.Action;
-import org.thilanka.messaging.domain.HeaderPin;
 import org.thilanka.messaging.domain.Message;
+import org.thilanka.messaging.domain.Payload;
+import org.thilanka.messaging.domain.Topic;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import java.util.UUID;
  *
  * @author Thilanka Munasinghe (thilankawillbe@gmail.com)
  */
+@SuppressWarnings("ALL")
 public class AndroidThingsActivity extends Activity implements MqttCallback {
 
     /**
@@ -183,11 +185,11 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                 Log.e(TAG, e.getLocalizedMessage());
             }
 
-            Log.d(TAG, "Listening to MIT App Inventor messages on " + sBoardIdentifier);
-            mMqttClient.subscribe(sBoardIdentifier, QOS);
+            Log.d(TAG, "Listening to MIT App Inventor messages on " + getSubscribeTopic() );
+            mMqttClient.subscribe(getSubscribeTopic(), QOS);
 
         } catch (MqttException e) {
-            e.printStackTrace();
+            Log.e(TAG, e.getLocalizedMessage());
         }
     }
 
@@ -211,14 +213,14 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     public void messageArrived(String pTopic, MqttMessage pMessage) throws IOException {
         Log.d(TAG, "The following message " + pMessage + " on topic " + pTopic + " arrived.");
 
-        if (!pTopic.equals(sBoardIdentifier)) {
+        if (!pTopic.equals(getSubscribeTopic())) {
             /* No need to take any action if this is not the topic we want. */
             return;
         }
 
         String payload = new String(pMessage.getPayload());
 
-        HeaderPin pin = Message.deconstrctPinMessage(payload);
+        Payload pin = Message.deconstrctMessage(payload);
         Action messageType = pin.getAction();
 
         switch (messageType) {
@@ -244,4 +246,13 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         super.onDestroy();
         mGpioHandler.closeOpenGpioPins();
     }
+
+    public static String getPublishTopic() {
+        return AndroidThingsActivity.getBoardIdentfier() + Topic.APP_INVENTOR;
+    }
+
+    public static String getSubscribeTopic() {
+        return AndroidThingsActivity.getBoardIdentfier() + Topic.ANDROID_THINGS;
+    }
+
 }
