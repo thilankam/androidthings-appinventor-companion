@@ -18,49 +18,61 @@ import java.io.IOException;
 import java.util.Set;
 
 /**
- * Created by thilanka1 on 8/12/17.
+ * The logic that handles any GPIO related activities.
+ *
+ * @author Thilanka Munasinghe (thilankawillbe@gmail.com)
  */
-
 public class GpioHandler {
 
+    /* The Log Tag*/
     private static final String TAG = "GpioHandler";
+
+    /* The MQTT Client*/
     private final MqttClient mMqttClient;
+
+    /* The Android Things Peripheral Manager Service*/
     private final PeripheralManagerService mPeripheralManagerService;
 
+    /* The input pins */
     private BiMap<String, Gpio> mGpioInputPinsMap;
+
+    /* The output pins */
     private BiMap<String, Gpio> mGpioOutputPinsMap;
 
+    /* The callback that handles any input events to the GPIO pins that are registered. */
     private GpioCallback mGpioCallback = new GpioCallback() {
         @Override
-        public boolean onGpioEdge(Gpio gpio) {
+        public boolean onGpioEdge(Gpio pGpio) {
             // Read the active low pin state
             try {
-                String pinName = mGpioInputPinsMap.inverse().get(gpio);
-                if (gpio.getValue()) {
+                String pinName = mGpioInputPinsMap.inverse().get(pGpio);
+                if (pGpio.getValue()) {
                     // Pin is LOW
-                    Log.d(TAG, "Pin "+pinName+" is Low/OFF.");
+                    Log.d(TAG, "Pin " + pinName + " is Low/OFF.");
                 } else {
                     // Pin is HIGH
-                    Log.d(TAG, "Pin "+pinName+" is High/ON.");
+                    Log.d(TAG, "Pin " + pinName + " is High/ON.");
                 }
 
-                String pubMsg = "EVENT" + ":" + pinName + ":" + "FALSE" + ":" + (gpio.getValue() ? "OFF" : "ON") ;
+                String pubMsg = "EVENT" + ":" + pinName + ":" + "FALSE" + ":" + (pGpio.getValue()
+                        ? "OFF" : "ON");
                 MqttMessage message = new MqttMessage(pubMsg.getBytes());
                 message.setQos(AndroidThingsActivity.QOS);
                 message.setRetained(false);
 
                 // Publish the message
-                System.out.println("Publishing to topic \"" + AndroidThingsActivity.getBoardIdentfier() + "\" qos " + AndroidThingsActivity.QOS);
+                System.out.println("Publishing to topic \"" + AndroidThingsActivity
+                        .getBoardIdentfier() + "\" qos " + AndroidThingsActivity.QOS);
                 try {
                     // publish message to broker
                     mMqttClient.publish(AndroidThingsActivity.getBoardIdentfier(), message);
                     Thread.sleep(AndroidThingsActivity.SLEEP_TIME);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.e(TAG, e.getLocalizedMessage());
                 }
 
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, e.getLocalizedMessage());
             }
 
             // Continue listening for more interrupts
@@ -73,6 +85,11 @@ public class GpioHandler {
         }
     };
 
+    /**
+     * The Constructor.
+     * @param pMqttClient
+     * @param pPeripheralManagerService
+     */
     public GpioHandler(MqttClient pMqttClient, PeripheralManagerService pPeripheralManagerService) {
         mGpioInputPinsMap = HashBiMap.create();
         mGpioOutputPinsMap = HashBiMap.create();
@@ -82,13 +99,19 @@ public class GpioHandler {
         Log.d(TAG, "Available GPIO: " + mPeripheralManagerService.getGpioList());
     }
 
-    public void handlerRegisterPin(HeaderPin pin) throws IOException{
-        String pinName = pin.getName();
-        PinDirection pinDirection = pin.getDirection();
-        PinValue pinValue = pin.getValue();
+    /**
+     * Handle a message that is requesting to register a pin as an input.
+     * @param pHeaderPin
+     * @throws IOException
+     */
+    public void handleRegisterPin(HeaderPin pHeaderPin) throws IOException {
+        String pinName = pHeaderPin.getName();
+        PinDirection pinDirection = pHeaderPin.getDirection();
+        PinValue pinValue = pHeaderPin.getValue();
         Log.d(TAG, "Received a Pin Registration triggered from App Inventor.");
         if (pinDirection == PinDirection.IN) {
-            Log.d(TAG, "Registering pin " + pinName + " as an input " + " with initial state " + pinValue);
+            Log.d(TAG, "Registering pin " + pinName + " as an input " + " with initial state " +
+                    pinValue);
             Gpio inputPin = openPin(pinName);
             // Initialize the pin as an input
             inputPin.setDirection(Gpio.DIRECTION_IN);
@@ -106,51 +129,27 @@ public class GpioHandler {
 
     }
 
-    private Gpio openPin(String pinName) {
-        Gpio gpioPin;
-        if (mGpioOutputPinsMap.containsKey(pinName)){
-            gpioPin = mGpioOutputPinsMap.get(pinName);
-            try {
-                Log.d(TAG, "Closing existing pin " + pinName + ".");
-                gpioPin.close();
-                mGpioOutputPinsMap.remove(pinName);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        gpioPin = createNewPin(pinName);
-        return gpioPin;
-    }
-
-    private Gpio createNewPin(String pinName) {
-        Gpio gpioPin = null;
-        try {
-            gpioPin = mPeripheralManagerService.openGpio(pinName);
-            //TODO: Revisit having initially low. We are certain about the direction being OUT here.
-            gpioPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
-            mGpioOutputPinsMap.put(pinName, gpioPin);
-        } catch (IOException e) {
-            Log.e(TAG, e.getLocalizedMessage());
-        }
-        return gpioPin;
-    }
-
-    public void handlePinEvent(HeaderPin pin) throws IOException {
+    /**
+     * Handle a message that needs to trigger an event on the GPIO pin.
+     * @param pHeaderPin
+     * @throws IOException
+     */
+    public void handlePinEvent(HeaderPin pHeaderPin) throws IOException {
         Log.d(TAG, "Received a Pin Event triggered from App Inventor.");
-        String pinName = pin.getName();
-        PinDirection pinDirection = pin.getDirection();
-        PinValue pinValue = pin.getValue();
+        String pinName = pHeaderPin.getName();
+        PinDirection pinDirection = pHeaderPin.getDirection();
+        PinValue pinValue = pHeaderPin.getValue();
         // Create GPIO connection for the pin.
         if (pinDirection == PinDirection.OUT) {
             Gpio gpioPin = openPin(pinName);
 
             switch (pinValue) {
                 case HIGH:
-                    Log.d(TAG, "Turning " + pinName +" ON.");
+                    Log.d(TAG, "Turning " + pinName + " ON.");
                     gpioPin.setValue(true);
                     break;
                 case LOW:
-                    Log.d(TAG, "Turning " + pinName +" OFF.");
+                    Log.d(TAG, "Turning " + pinName + " OFF.");
                     gpioPin.setValue(false);
                     break;
                 default:
@@ -160,9 +159,11 @@ public class GpioHandler {
         } else {
             Log.d(TAG, "The designated pin " + pinName + " is not an output. Nothing to do here!");
         }
+   }
 
-    }
-
+    /**
+     * Close any open GPIO pins.
+     */
     public void closeOpenGpioPins() {
         Set<Gpio> openGpioPins = mGpioOutputPinsMap.values();
         for (Gpio pin : openGpioPins) {
@@ -176,5 +177,44 @@ public class GpioHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Open the GPIO pin by the given pin.
+     * @param pPinName
+     * @return the GPIO pin that was just opened.
+     */
+    private Gpio openPin(String pPinName) {
+        Gpio gpioPin;
+        if (mGpioOutputPinsMap.containsKey(pPinName)) {
+            gpioPin = mGpioOutputPinsMap.get(pPinName);
+            try {
+                Log.d(TAG, "Closing existing pin " + pPinName + ".");
+                gpioPin.close();
+                mGpioOutputPinsMap.remove(pPinName);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        gpioPin = createNewPin(pPinName);
+        return gpioPin;
+    }
+
+    /**
+     * Create a new GPIO pin by the given name.
+     * @param pPinName
+     * @return
+     */
+    private Gpio createNewPin(String pPinName) {
+        Gpio gpioPin = null;
+        try {
+            gpioPin = mPeripheralManagerService.openGpio(pPinName);
+            //TODO: Revisit having initially low. We are certain about the direction being OUT here.
+            gpioPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
+            mGpioOutputPinsMap.put(pPinName, gpioPin);
+        } catch (IOException e) {
+            Log.e(TAG, e.getLocalizedMessage());
+        }
+        return gpioPin;
     }
 }
