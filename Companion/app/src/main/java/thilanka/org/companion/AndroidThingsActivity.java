@@ -16,7 +16,6 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
-import org.thilanka.messaging.domain.Action;
 import org.thilanka.messaging.domain.Message;
 import org.thilanka.messaging.domain.Payload;
 import org.thilanka.messaging.domain.PeripheralIO;
@@ -113,8 +112,6 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         mPeripheralManagerService = new PeripheralManagerService();
         String serverUrl = "tcp://" + SERVER + ":" + "1883";
         mMqttClient = new MqttClient(serverUrl, CLIENT_ID, new MemoryPersistence());
-        mGpioHandler = new GpioHandler(mMqttClient, mPeripheralManagerService);
-        mPwmHandler = new PwmHandler(mMqttClient, mPeripheralManagerService);
     }
 
     /**
@@ -154,6 +151,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                     sBoardIdentifier);
         }
 
+        mGpioHandler = new GpioHandler(this, mMqttClient, mPeripheralManagerService);
+        mPwmHandler = new PwmHandler(this, mMqttClient, mPeripheralManagerService);
+
         Log.i(TAG, "*******************************************");
         Log.i(TAG, "Please use the following values when configuring your MIT App Inventor App.");
         Log.i(TAG, "Board Identifier = " + sBoardIdentifier);
@@ -161,6 +161,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         Log.i(TAG, "Messaging Host = " + SERVER);
         Log.i(TAG, "Messaging Port = " + PORT);
         Log.i(TAG, "*******************************************");
+
     }
 
     /**
@@ -169,6 +170,18 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
      */
     public static String getBoardIdentfier() {
         return sBoardIdentifier;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        /* Begin listening for interrupt events */
+        try {
+            mGpioHandler.registerGpioCallback();
+        } catch (IOException e) {
+            Log.e(TAG, e.getLocalizedMessage());
+        }
     }
 
     @Override
@@ -218,7 +231,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
      */
     @Override
     public void messageArrived(String pTopic, MqttMessage pMessage) throws IOException {
-        Log.d(TAG, "The following message " + pMessage + " on topic " + pTopic + " arrived.");
+        Log.d(TAG, "Message " + pMessage + " on topic " + pTopic + " arrived.");
 
         if (!pTopic.equals(getSubscribeTopic())) {
             /* No need to take any action if this is not the topic we want. */
@@ -245,7 +258,8 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken pToken) {
-        Log.d(TAG, "Delivery of the message has completed. Received token " + pToken);
+        Log.d(TAG, "Delivery of the message has completed. Delievery complete = " + pToken
+                .isComplete());
     }
 
     @Override
@@ -254,10 +268,25 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         mGpioHandler.closeOpenGpioPins();
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        /* Interrupt events no longer necessary */
+        mGpioHandler.unregisterGpioCallback();
+    }
+
+    /**
+     * The Topic the MQTTClient should publish to.
+     * @return the topic
+     */
     public static String getPublishTopic() {
         return AndroidThingsActivity.getBoardIdentfier() + Topic.APP_INVENTOR;
     }
 
+    /**
+     * The Topic the MQTTClient should subscribe to.
+     * @return the topic
+     */
     public static String getSubscribeTopic() {
         return AndroidThingsActivity.getBoardIdentfier() + Topic.ANDROID_THINGS;
     }

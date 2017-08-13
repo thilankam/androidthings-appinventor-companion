@@ -2,8 +2,8 @@ package thilanka.org.companion;
 
 import android.util.Log;
 
-import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.Pwm;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -28,22 +28,24 @@ public class PwmHandler {
     /* The Android Things Peripheral Manager Service*/
     private final PeripheralManagerService mPeripheralManagerService;
 
-    /* The input pins */
-    private BiMap<String, Gpio> mGpioInputPinsMap;
+    /* The static reference to the parent activity to run things in the foreground */
+    private final AndroidThingsActivity sParent;
 
-    /* The output pins */
-    private BiMap<String, Gpio> mGpioOutputPinsMap;
+    /* The PWM output pins */
+    private BiMap<String, Pwm> mPwmPinsMap;
 
     /**
      * The Constructor.
+     * @param pAndroidThingsActivity
      * @param pMqttClient
      * @param pPeripheralManagerService
      */
-    public PwmHandler(MqttClient pMqttClient, PeripheralManagerService pPeripheralManagerService) {
-        mGpioInputPinsMap = HashBiMap.create();
-        mGpioOutputPinsMap = HashBiMap.create();
+    public PwmHandler(AndroidThingsActivity pAndroidThingsActivity, MqttClient pMqttClient,
+                      PeripheralManagerService pPeripheralManagerService) {
+        mPwmPinsMap = HashBiMap.create();
         mMqttClient = pMqttClient;
         mPeripheralManagerService = pPeripheralManagerService;
+        sParent = pAndroidThingsActivity;
 
         Log.d(TAG, "Available PWM: " + mPeripheralManagerService.getPwmList());
     }
@@ -54,5 +56,25 @@ public class PwmHandler {
      * @throws IOException
      */
     public void handleMessage(Payload pPayload) throws IOException {
+        Log.d(TAG, "Received a PWM Event triggered from App Inventor.");
+        String pwmName = pPayload.getName();
+        Pwm pwm = openPwm(pwmName);
+    }
+
+    /**
+     * Open the PWM by the given name.
+     * @param pPwmName
+     * @return the PWM that was just opened.
+     * @throws IOException
+     */
+    private Pwm openPwm(String pPwmName) throws IOException {
+        Pwm pwm;
+        if (mPwmPinsMap.containsKey(pPwmName)) {
+            pwm = mPwmPinsMap.get(pPwmName);
+        } else {
+            pwm = mPeripheralManagerService.openPwm(pPwmName);
+
+        }
+        return pwm;
     }
 }
