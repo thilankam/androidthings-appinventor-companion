@@ -104,6 +104,11 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     private PwmHandler mPwmHandler;
 
     /**
+     * The Temperature Sensor Handler.
+     */
+    private TemperatureSensorHandler mTemperatureSensorHandler;
+
+    /**
      * The Constructor.
      * @throws MqttException
      */
@@ -153,6 +158,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
 
         mGpioHandler = new GpioHandler(this, mMqttClient, mPeripheralManagerService);
         mPwmHandler = new PwmHandler(this, mMqttClient, mPeripheralManagerService);
+        mTemperatureSensorHandler = new TemperatureSensorHandler(this, mMqttClient);
 
         Log.i(TAG, "*******************************************");
         Log.i(TAG, "Please use the following values when configuring your MIT App Inventor App.");
@@ -249,6 +255,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                     break;
                 case PWM:
                     mPwmHandler.handleMessage(payload);
+                    break;
+                case TEMPERATURE_SENSOR:
+                    mTemperatureSensorHandler.handleMessage(payload);
                     break;
                 default:
                     Log.d(TAG, "Message not supported!");

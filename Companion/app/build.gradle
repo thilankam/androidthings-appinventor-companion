@@ -31,4 +31,11 @@ dependencies {
     compile 'com.google.code.gson:gson:2.2.4'
     compile files('libs/androidthings-messages-0.0.1-SNAPSHOT.jar')
     compile 'com.google.guava:guava:23.0-android'
+    compile 'com.google.android.things.contrib:driver-apa102:0.3'
+    compile 'com.google.android.things.contrib:driver-button:0.3'
+    compile 'com.google.android.things.contrib:driver-bmx280:0.2'
+    compile 'com.google.android.things.contrib:driver-ht16k33:0.3'
+    compile 'com.google.android.things.contrib:driver-pwmspeaker:0.2'
+    compile 'com.google.android.things.contrib:driver-pwmservo:0.2'
+    compile 'com.google.android.things.contrib:driver-rainbowhat:0.2'
 }

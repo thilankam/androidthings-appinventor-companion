@@ -83,7 +83,6 @@ public class GpioHandler {
                 Log.d(TAG,"Publishing to topic \"" + AndroidThingsActivity.getPublishTopic()
                         + "\" qos " + AndroidThingsActivity.QOS);
                 try {
-                    // publish message to broker
                     mMqttClient.publish(AndroidThingsActivity.getPublishTopic(),
                             message);
                     Thread.sleep(AndroidThingsActivity.SLEEP_TIME);
@@ -108,7 +107,7 @@ public class GpioHandler {
 
     /**
      * The Constructor.
-     * @param androidThingsActivity
+     * @param pAndroidThingsActivity
      * @param pMqttClient
      * @param pPeripheralManagerService
      */
