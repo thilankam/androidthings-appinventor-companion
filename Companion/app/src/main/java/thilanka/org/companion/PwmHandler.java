@@ -8,6 +8,8 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
 import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.thilanka.device.pin.PinProperty;
+import org.thilanka.device.pin.PinValue;
 import org.thilanka.messaging.domain.Payload;
 
 import java.io.IOException;
@@ -56,9 +58,30 @@ public class PwmHandler {
      * @throws IOException
      */
     public void handleMessage(Payload pPayload) throws IOException {
-        Log.d(TAG, "Received a PWM Event triggered from App Inventor.");
+        Log.d(TAG, "Received a PWM Event triggered from App Inventor with payload " + pPayload);
         String pwmName = pPayload.getName();
         Pwm pwm = openPwm(pwmName);
+        PinProperty property = pPayload.getProperty();
+        switch (property){
+            case PIN_STATE:
+                PinValue value = pPayload.getValue();
+                boolean enabled = (value == PinValue.HIGH);
+                pwm.setEnabled(enabled);
+                Log.d(TAG, "Set PWM " + pwmName + " enabled = " + enabled );
+                break;
+            case FREQUENCY:
+                double frequencyValue = pPayload.getDoubleValue();
+                pwm.setPwmFrequencyHz(frequencyValue);
+                Log.d(TAG, "Set PWM " + pwmName + " frequency = " + frequencyValue );
+                break;
+            case DUTY_CYCLE:
+                double dutyCycleValue = pPayload.getDoubleValue();
+                pwm.setPwmDutyCycle(dutyCycleValue);
+                Log.d(TAG, "Set PWM " + pwmName + " duty cycle = " + dutyCycleValue );
+                break;
+            default:
+                Log.d(TAG, "Unknown PWM case : " + property);
+        }
     }
 
     /**
@@ -73,7 +96,7 @@ public class PwmHandler {
             pwm = mPwmPinsMap.get(pPwmName);
         } else {
             pwm = mPeripheralManagerService.openPwm(pPwmName);
-
+            mPwmPinsMap.put(pPwmName, pwm);
         }
         return pwm;
     }

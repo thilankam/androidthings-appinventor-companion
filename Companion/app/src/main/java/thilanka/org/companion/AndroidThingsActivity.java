@@ -227,10 +227,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
      * {"mDirection":"OUT","mName":"GPIO_34","mProperty":"PIN_STATE","mValue":"LOW"}
      * @param pTopic
      * @param pMessage
-     * @throws IOException
      */
     @Override
-    public void messageArrived(String pTopic, MqttMessage pMessage) throws IOException {
+    public void messageArrived(String pTopic, MqttMessage pMessage) {
         Log.d(TAG, "Message " + pMessage + " on topic " + pTopic + " arrived.");
 
         if (!pTopic.equals(getSubscribeTopic())) {
@@ -243,17 +242,21 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
         Payload payload = Message.deconstrctMessage(payloadStr);
         PeripheralIO peripheralIOType = payload.getPeripheralIO();
 
-        switch(peripheralIOType){
-            case GPIO:
-                mGpioHandler.handleMessage(payload);
-                break;
-            case PWM:
-                mPwmHandler.handleMessage(payload);
-                break;
-            default:
-                Log.d(TAG, "Message not supported!");
-                break;
-        }
+        try {
+            switch(peripheralIOType){
+                case GPIO:
+                    mGpioHandler.handleMessage(payload);
+                    break;
+                case PWM:
+                    mPwmHandler.handleMessage(payload);
+                    break;
+                default:
+                    Log.d(TAG, "Message not supported!");
+                    break;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
     }
 
     @Override
