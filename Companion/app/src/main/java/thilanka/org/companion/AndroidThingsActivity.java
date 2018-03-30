@@ -115,7 +115,7 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     public AndroidThingsActivity() throws MqttException {
         mMQTTConnectOptions = new MqttConnectOptions();
         mPeripheralManagerService = new PeripheralManagerService();
-        String serverUrl = "tcp://" + SERVER + ":" + "1883";
+        String serverUrl = "tcp://" + SERVER + ":" + PORT;
         mMqttClient = new MqttClient(serverUrl, CLIENT_ID, new MemoryPersistence());
     }
 
