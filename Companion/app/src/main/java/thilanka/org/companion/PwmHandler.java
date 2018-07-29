@@ -2,7 +2,7 @@ package thilanka.org.companion;
 
 import android.util.Log;
 
-import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.PeripheralManager;
 import com.google.android.things.pio.Pwm;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -27,8 +27,8 @@ public class PwmHandler {
     /* The MQTT Client*/
     private final MqttClient mMqttClient;
 
-    /* The Android Things Peripheral Manager Service*/
-    private final PeripheralManagerService mPeripheralManagerService;
+    /* The Android Things Peripheral Manager */
+    private final PeripheralManager mPeripheralManager;
 
     /* The static reference to the parent activity to run things in the foreground */
     private final AndroidThingsActivity sParent;
@@ -43,13 +43,13 @@ public class PwmHandler {
      * @param pPeripheralManagerService
      */
     public PwmHandler(AndroidThingsActivity pAndroidThingsActivity, MqttClient pMqttClient,
-                      PeripheralManagerService pPeripheralManagerService) {
+                      PeripheralManager pPeripheralManagerService) {
         mPwmPinsMap = HashBiMap.create();
         mMqttClient = pMqttClient;
-        mPeripheralManagerService = pPeripheralManagerService;
+        mPeripheralManager = pPeripheralManagerService;
         sParent = pAndroidThingsActivity;
 
-        Log.d(TAG, "Available PWM: " + mPeripheralManagerService.getPwmList());
+        Log.d(TAG, "Available PWM: " + mPeripheralManager.getPwmList());
     }
 
     /**
@@ -95,7 +95,7 @@ public class PwmHandler {
         if (mPwmPinsMap.containsKey(pPwmName)) {
             pwm = mPwmPinsMap.get(pPwmName);
         } else {
-            pwm = mPeripheralManagerService.openPwm(pPwmName);
+            pwm = mPeripheralManager.openPwm(pPwmName);
             mPwmPinsMap.put(pPwmName, pwm);
         }
         return pwm;

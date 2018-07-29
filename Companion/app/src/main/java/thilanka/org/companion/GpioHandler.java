@@ -4,7 +4,7 @@ import android.util.Log;
 
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.GpioCallback;
-import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.PeripheralManager;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
@@ -35,8 +35,8 @@ public class GpioHandler {
     /* The MQTT Client*/
     private final MqttClient mMqttClient;
 
-    /* The Android Things Peripheral Manager Service*/
-    private final PeripheralManagerService mPeripheralManagerService;
+    /* The Android Things Peripheral Manager */
+    private final PeripheralManager mPeripheralManager;
 
     /* The input pins */
     private BiMap<String, Gpio> mGpioInputPinsMap;
@@ -51,7 +51,7 @@ public class GpioHandler {
     private GpioCallback mGpioCallback = new GpioCallback() {
         @Override
         public boolean onGpioEdge(Gpio pGpio) {
-            super.onGpioEdge(pGpio);
+            //super.onGpioEdge(pGpio);
             Log.d(TAG, "Receive GPIO change.");
             // Read the active low pin state
             try {
@@ -100,7 +100,7 @@ public class GpioHandler {
 
         @Override
         public void onGpioError(Gpio gpio, int error) {
-            super.onGpioError(gpio, error);
+            //super.onGpioError(gpio, error);
             Log.w(TAG, gpio + ": Error event " + error);
         }
     };
@@ -112,14 +112,15 @@ public class GpioHandler {
      * @param pPeripheralManagerService
      */
     public GpioHandler(AndroidThingsActivity pAndroidThingsActivity, MqttClient pMqttClient,
-                       PeripheralManagerService
+                       PeripheralManager
+
             pPeripheralManagerService) {
         mGpioInputPinsMap = HashBiMap.create();
         mGpioOutputPinsMap = HashBiMap.create();
         mMqttClient = pMqttClient;
-        mPeripheralManagerService = pPeripheralManagerService;
+        mPeripheralManager = pPeripheralManagerService;
         sParent = pAndroidThingsActivity;
-        Log.d(TAG, "Available GPIO: " + mPeripheralManagerService.getGpioList());
+        Log.d(TAG, "Available GPIO: " + mPeripheralManager.getGpioList());
     }
 
     /**
@@ -273,7 +274,7 @@ public class GpioHandler {
     private Gpio createNewInputPin(String pPinName) {
         try {
             Log.d(TAG, "Creating new pin " + pPinName);
-            final Gpio gpioPin = mPeripheralManagerService.openGpio(pPinName);
+            final Gpio gpioPin = mPeripheralManager.openGpio(pPinName);
             gpioPin.setDirection(Gpio.DIRECTION_IN);
             // High voltage is considered active
             gpioPin.setActiveType(Gpio.ACTIVE_HIGH);
@@ -305,7 +306,7 @@ public class GpioHandler {
     private Gpio createNewOutputPin(String pPinName) {
         Gpio gpioPin = null;
         try {
-            gpioPin = mPeripheralManagerService.openGpio(pPinName);
+            gpioPin = mPeripheralManager.openGpio(pPinName);
             gpioPin.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
             mGpioOutputPinsMap.put(pPinName, gpioPin);
         } catch (IOException e) {

@@ -7,7 +7,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.google.android.things.pio.PeripheralManagerService;
+import com.google.android.things.pio.PeripheralManager;
+
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -89,9 +90,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
     private MqttConnectOptions mMQTTConnectOptions;
 
     /**
-     * Android Things Peripheral Manager Service Instance.
+     * Android Things Peripheral Manager Instance.
      */
-    private PeripheralManagerService mPeripheralManagerService;
+    private PeripheralManager mPeripheralManager;
 
     /**
      * The GPIO Handler.
@@ -114,7 +115,9 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
      */
     public AndroidThingsActivity() throws MqttException {
         mMQTTConnectOptions = new MqttConnectOptions();
-        mPeripheralManagerService = new PeripheralManagerService();
+
+        mPeripheralManager = PeripheralManager.getInstance();
+
         String serverUrl = "tcp://" + SERVER + ":" + PORT;
         mMqttClient = new MqttClient(serverUrl, CLIENT_ID, new MemoryPersistence());
     }
@@ -156,9 +159,13 @@ public class AndroidThingsActivity extends Activity implements MqttCallback {
                     sBoardIdentifier);
         }
 
-        mGpioHandler = new GpioHandler(this, mMqttClient, mPeripheralManagerService);
-        mPwmHandler = new PwmHandler(this, mMqttClient, mPeripheralManagerService);
+
+
+        mGpioHandler = new GpioHandler(this, mMqttClient, mPeripheralManager);
+        mPwmHandler = new PwmHandler(this, mMqttClient, mPeripheralManager);
         mTemperatureSensorHandler = new TemperatureSensorHandler(this, mMqttClient);
+
+
 
         Log.i(TAG, "*******************************************");
         Log.i(TAG, "Please use the following values when configuring your MIT App Inventor App.");
